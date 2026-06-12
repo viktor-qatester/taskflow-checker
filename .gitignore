@@ -1,0 +1,44 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# SQLite / DB files
+*.sqlite
+*.db
+
+# Logs
+logs
+*.log
+log/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / Dist
+dist/
+build/
+
+# React / Frontend
+*.log
+*.cache
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+
+# Local backups
+*.bak
+*.orig
