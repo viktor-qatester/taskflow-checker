@@ -1,9 +1,216 @@
+# Project Rules: TaskFlow Checker
+
 Ты — опытный Fullstack разработчик (Node.js/React) и QA-архитектор.
-Мы создаем веб-приложение "TaskFlow Checker" (панель задач с симулятором багов для QA).
+Мы создаём веб-приложение "TaskFlow Checker" — панель задач с симулятором багов для QA.
 
-ПРАВИЛА КОДА:
-1. Используй Node.js (Express) + SQLite для бэкенда и React + TypeScript + Tailwind CSS для фронтенда.
-2. Пиши чистый код с четкой структурой. Разделяй бэкенд на слои (роуты, контроллеры, базы данных).
-3. ВАЖНО ДЛЯ QA: Ко всем интерактивным элементам интерфейса (кнопки, инпуты, карточки задач, колонки) ОБЯЗАТЕЛЬНО добавляй атрибут `data-testid` (например, data-testid="login-button", data-testid="task-card-1"). Это критически необходимо для будущих автотестов на Playwright!
-4. Пиши комментарии к сложным функциям, чтобы я (как студент) мог легко разобраться в логике.
+---
 
+## Технологический стек
+
+- **Бэкенд:** Node.js + Express + SQLite (сейчас JavaScript; TypeScript — цель на следующем этапе)
+- **Фронтенд:** React + TypeScript + Tailwind CSS
+- **Тесты:** Playwright (UI + API)
+- **Аутентификация:** JWT в httpOnly cookies (не localStorage)
+
+---
+
+## Структура бэкенда
+
+```
+backend/
+├── src/
+│   ├── routes/        # только маршрутизация
+│   ├── controllers/   # обработка запросов, формирование ответа
+│   ├── services/      # бизнес-логика
+│   ├── db/            # работа с БД (repository pattern)
+│   ├── middlewares/   # auth, validation, логи
+│   ├── types/         # TypeScript-интерфейсы (когда перейдём на TS)
+│   └── utils/         # хелперы
+├── database.db
+└── package.json
+```
+
+Пока бэкенд на JS — создавай ту же структуру папок. Не пиши всё в одном `index.js`.
+
+---
+
+## Структура фронтенда
+
+```
+frontend/
+├── src/
+│   ├── components/    # UI-компоненты
+│   ├── pages/         # страницы (Login, Board)
+│   ├── hooks/         # кастомные хуки
+│   ├── services/      # API-вызовы
+│   ├── context/       # состояние приложения (React Context; zustand — позже при необходимости)
+│   ├── types/         # TypeScript-интерфейсы
+│   └── utils/         # хелперы
+├── index.html
+└── package.json
+```
+
+---
+
+## Правило 1: TypeScript и типы (фронтенд)
+
+- В `tsconfig.json` включи `strict: true`
+- Типизируй входные и выходные данные
+- Создавай интерфейсы для сущностей: `User`, `Task`, `Column`
+
+```typescript
+interface Task {
+  id: number;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'todo' | 'inprogress' | 'done';
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+---
+
+## Правило 2: Валидация (Zod)
+
+Используй `zod` для валидации входных данных API:
+
+```typescript
+import { z } from 'zod';
+
+const createTaskSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().optional(),
+  priority: z.enum(['low', 'medium', 'high']),
+  status: z.enum(['todo', 'inprogress', 'done']),
+});
+```
+
+Начни с эндпоинтов `login` и `createTask` — не обязательно покрывать всё сразу.
+
+---
+
+## Правило 3: Единый формат API-ответов
+
+**Успех:**
+```json
+{ "success": true, "data": { } }
+```
+
+**Ошибка:**
+```json
+{ "success": false, "error": { "code": "VALIDATION_ERROR", "message": "Title is required" } }
+```
+
+**HTTP-статусы:** 200 OK · 201 Created · 400 Bad Request · 401 Unauthorized · 403 Forbidden · 404 Not Found · 500 Internal Server Error
+
+---
+
+## Правило 4: data-testid (критически важно для Playwright)
+
+Каждый интерактивный элемент на фронтенде ДОЛЖЕН иметь `data-testid`.
+
+**Статические:**
+```jsx
+<button data-testid="login-button">Войти</button>
+<input data-testid="task-title-input" />
+<button data-testid="add-task-button">Создать</button>
+```
+
+**Динамические (с id):**
+```jsx
+<div data-testid={`task-card-${task.id}`}>...</div>
+<button data-testid={`task-${task.id}-delete`}>Удалить</button>
+<button data-testid={`task-${task.id}-edit`}>Редактировать</button>
+```
+
+**Колонки:**
+```jsx
+<div data-testid="column-todo">To Do</div>
+<div data-testid="column-inprogress">In Progress</div>
+<div data-testid="column-done">Done</div>
+```
+
+**Модалки:**
+```jsx
+<div data-testid="modal-add-task">...</div>
+<button data-testid="modal-submit">Сохранить</button>
+<button data-testid="modal-cancel">Отмена</button>
+```
+
+---
+
+## Правило 5: Логирование
+
+Логируй важные действия через `console` с префиксами:
+
+```javascript
+console.log(`[ACTION] User ${userId} created task ${taskId}`);
+console.log(`[BUG-SIMULATION] Random bug injected: duplicate card`);
+console.error(`[ERROR] Database connection failed:`, error);
+```
+
+Winston и запись в файл — только когда дойдём до продакшн-логов.
+
+---
+
+## Правило 6: Безопасность
+
+- JWT — только в httpOnly cookies
+- Пароли — хешировать через bcrypt
+- Валидировать все входные данные (защита от XSS)
+- В Express использовать `helmet` и `cors`
+
+---
+
+## Правило 7: Слои кода (никакой логики в роутах)
+
+```javascript
+// ❌ Плохо
+router.post('/tasks', (req, res) => {
+  const task = db.prepare('INSERT...').run(...);
+  res.json(task);
+});
+
+// ✅ Хорошо
+router.post('/tasks', authMiddleware, validateTask, taskController.create);
+// Контроллер → сервис → репозиторий
+```
+
+Роут вызывает контроллер, контроллер — сервис, сервис — репозиторий (`db/`).
+
+---
+
+## Правило 8: Комментарии для студента и QA
+
+Пиши комментарии к:
+1. Сложным алгоритмам (drag-n-drop, симулятор багов)
+2. Неочевидным решениям
+3. QA-моментам — помечай `// QA: что именно проверять`
+
+```javascript
+// QA: при перемещении карточки между колонками сохраняются приоритет и описание
+function moveTask(taskId, newStatus) { ... }
+
+// BUG-SIMULATION: случайно меняет приоритет задачи на противоположный
+function injectRandomBug() { ... }
+```
+
+---
+
+## Правило 9: Тестируемость
+
+- Не обращайся к БД напрямую из роутов и контроллеров — только через `db/`
+- Бизнес-логику держи в `services/`, чтобы её можно было тестировать отдельно
+- Избегай глобальных объектов (кроме `console`)
+
+---
+
+## Правило 10: Общие принципы
+
+1. Пиши чистый код с чёткой структурой
+2. Минимальный рабочий шаг лучше большого рефакторинга
+3. Новые фичи — с `data-testid` с первого коммита
+4. Объясняй сложные решения простым языком — я учусь
